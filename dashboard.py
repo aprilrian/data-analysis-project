@@ -7,6 +7,8 @@ from babel.numbers import format_currency
 sns.set(style='dark')
 
 
+# Helper function yang dibutuhkan untuk menyiapkan berbagai dataframe
+
 def create_daily_orders_df(df):
     daily_orders_df = df.resample(rule='D', on='order_date').agg({
         "order_id": "nunique",
@@ -70,6 +72,7 @@ def create_rfm_df(df):
     return rfm_df
 
 
+# Load cleaned data
 all_df = pd.read_csv("all_data.csv")
 
 datetime_columns = ["order_date", "delivery_date"]
@@ -79,6 +82,7 @@ all_df.reset_index(inplace=True)
 for column in datetime_columns:
     all_df[column] = pd.to_datetime(all_df[column])
 
+# Filter data
 min_date = all_df["order_date"].min()
 max_date = all_df["order_date"].max()
 
@@ -96,6 +100,9 @@ with st.sidebar:
 main_df = all_df[(all_df["order_date"] >= str(start_date)) &
                  (all_df["order_date"] <= str(end_date))]
 
+# st.dataframe(main_df)
+
+# # Menyiapkan berbagai dataframe
 daily_orders_df = create_daily_orders_df(main_df)
 sum_order_items_df = create_sum_order_items_df(main_df)
 bygender_df = create_bygender_df(main_df)
@@ -103,8 +110,8 @@ byage_df = create_byage_df(main_df)
 bystate_df = create_bystate_df(main_df)
 rfm_df = create_rfm_df(main_df)
 
+# plot number of daily orders (2021)
 st.header('Dicoding Collection Dashboard :sparkles:')
-
 st.subheader('Daily Orders')
 
 col1, col2 = st.columns(2)
@@ -130,6 +137,7 @@ ax.tick_params(axis='x', labelsize=15)
 
 st.pyplot(fig)
 
+# Product performance
 st.subheader("Best & Worst Performing Product")
 
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(35, 15))
@@ -156,6 +164,7 @@ ax[1].tick_params(axis='x', labelsize=30)
 
 st.pyplot(fig)
 
+# customer demographic
 st.subheader("Customer Demographics")
 
 col1, col2 = st.columns(2)
@@ -212,6 +221,7 @@ ax.tick_params(axis='y', labelsize=20)
 ax.tick_params(axis='x', labelsize=15)
 st.pyplot(fig)
 
+# Best Customer Based on RFM Parameters
 st.subheader("Best Customer Based on RFM Parameters")
 
 col1, col2, col3 = st.columns(3)
@@ -257,4 +267,4 @@ ax[2].tick_params(axis='x', labelsize=35)
 
 st.pyplot(fig)
 
-st.caption('Copyright (c) Dicoding 2023')
+st.caption('Copyright © Dicoding 2023')
