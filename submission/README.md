@@ -4,7 +4,7 @@
 ```
 conda create --name main-ds
 conda activate main-ds
-pip install pandas plotly streamlit
+pip install matplotlib pandas seaborn statsmodels streamlit
 ```
 
 ## Run steamlit app
