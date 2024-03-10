@@ -47,17 +47,18 @@ def create_dist_clasify_df(df):
 
 
 # Load cleaned data
-all_df = pd.read_csv('./submission/dashboard/main_data.csv')
+try:
+    all_df = pd.read_csv('main_data.csv')
+except:
+    all_df = pd.read_csv('./dashboard/submission/main_data.csv')
 
 all_df.sort_values(by='dteday', inplace=True)
 all_df.reset_index(inplace=True)
 all_df['dteday'] = pd.to_datetime(all_df['dteday'])
 
-
 # Filter data
 min_date = all_df['dteday'].min()
 max_date = all_df['dteday'].max()
-
 
 # Sidebar
 with st.sidebar:
@@ -79,20 +80,17 @@ with st.sidebar:
 main_df = all_df[(all_df['dteday'] >= str(start_date)) &
                  (all_df['dteday'] <= str(end_date))]
 
-
 # Prepare dataframes
 daily_df = create_daily_df(main_df)
 daily_clasified_df = create_daily_clasified_df(main_df)
 daily_dist_clasified_df = create_dist_clasify_df(daily_clasified_df)
 time_series_df = daily_dist_clasified_df
 
-
 # Title and subtitle
 st.header('Dicoding Bike Sharing Dashboard')
 st.subheader('Date Range: \n{} — {}'.format(start_date.strftime('%B %d, %Y'), end_date.strftime('%B %d, %Y')))
 
 st.metric("Total Rides", daily_df['cnt'].sum())
-
 
 # Plot daily rides
 fig, ax = plt.subplots(figsize=(16, 8))
@@ -108,7 +106,6 @@ ax.tick_params(axis='x', labelsize=15)
 
 st.pyplot(fig)
 
-
 # Daily rides classified
 col1, col2 = st.columns(2)
 
@@ -117,7 +114,6 @@ with col1:
 
 with col2:
     st.metric("Total Registered Rides", daily_df['registered'].sum())
-
 
 # Plot daily rides classified
 fig, ax = plt.subplots(figsize=(16, 8))
@@ -143,7 +139,6 @@ ax.legend()
 
 st.pyplot(fig)
 
-
 # Daily rides classified by usage
 st.subheader('Rides Classified by Usage')
 
@@ -153,7 +148,8 @@ with scol1:
     st.metric("Low Usage", daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'Low']['total'].sum())
 
 with scol2:
-    st.metric("Medium Usage", daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'Medium']['total'].sum())
+    st.metric("Medium Usage",
+              daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'Medium']['total'].sum())
 
 with scol3:
     st.metric("High Usage", daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'High']['total'].sum())
@@ -167,7 +163,6 @@ ax.set_xticklabels(days_of_week)
 ax.set_xlabel('')
 
 st.pyplot(fig)
-
 
 # Time series
 st.subheader('Time Series')
@@ -185,8 +180,14 @@ if len(time_series_df['total']) >= 14:
     time_series_df.set_index('dteday', inplace=True)
     decomposition = seasonal_decompose(time_series_df['total'], model='additive')
     fig = decomposition.plot()
-    plt.rcParams.update(
-        {'axes.titlesize': 'large', 'axes.labelsize': 'medium', 'xtick.labelsize': 'small', 'ytick.labelsize': 'small'})
+
+    for ax in fig.axes:
+        ax.set_title('')
+        ax.set_xlabel(ax.get_xlabel(), fontsize=8)
+        ax.set_ylabel(ax.get_ylabel(), fontsize=8)
+        ax.tick_params(axis='both', labelsize=8)
+
+    plt.tight_layout()
 
     st.pyplot(fig)
 else:
