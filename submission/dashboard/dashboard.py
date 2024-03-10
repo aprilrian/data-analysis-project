@@ -1,63 +1,186 @@
 import pandas as pd
+import seaborn as sns
 import streamlit as st
-import plotly.express as px
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+from statsmodels.tsa.seasonal import seasonal_decompose
 
-def load_data():
-    data = pd.read_csv('main_data.csv')
-    data['dteday'] = pd.to_datetime(data['dteday'])
-    return data
+sns.set(style='dark')
 
-def display_time_series(data, column='total_rentals', title='Time Series Analysis'):
-    fig = px.line(data, x='dteday', y=column, title=title)
-    return fig
 
-def comparative_analysis(data, year1, year2, column='total_rentals'):
-    data1 = data[data['year'] == year1]
-    data2 = data[data['year'] == year2]
-    fig = make_subplots(rows=2, cols=1, subplot_titles=[f'{year1} {column.title()}', f'{year2} {column.title()}'])
-    fig.add_trace(go.Scatter(x=data1['dteday'], y=data1[column], name=f'{year1}'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=data2['dteday'], y=data2[column], name=f'{year2}'), row=2, col=1)
-    fig.update_layout(height=600, title_text=f'Comparative Analysis: {column.title()}')
-    return fig
+# Helper functions
+def create_daily_df(df):
+    daily = df.resample(rule='D', on='dteday').agg({
+        "cnt": "sum",
+        "casual": "sum",
+        "registered": "sum"
+    })
+    daily = daily.reset_index()
 
-def main():
-    st.title('Dicoding Bike Sharing Dashboard')
-    st.caption('This dashboard is created for the final submission of the "Belajar Pengembangan Machine Learning" course on Dicoding.')
-    st.caption('The dataset used in this dashboard is the "Bike Sharing Dataset" from the UCI Machine Learning Repository.')
-    st.caption('The dataset contains bike sharing data from 2011 to 2012, and the goal of this dashboard is to provide an interactive analysis of the dataset.')
-    st.caption('The dashboard is created using Streamlit and Plotly.')
+    return daily
 
-    data = load_data()
 
-    # Sidebar for user inputs
-    analysis_type = st.sidebar.selectbox("Select Analysis Type", ("Overview", "Time Series Analysis", "Comparative Analysis", "Distribution Analysis"))
+def create_daily_clasified_df(df):
+    daily_clasified = df.groupby('dteday').agg({
+        'casual': 'sum',
+        'registered': 'sum'
+    }).reset_index()
 
-    if analysis_type == "Overview":
-        st.header("Dataset Overview")
-        st.write(data.describe())
-        st.dataframe(data.head())
+    return daily_clasified
 
-    elif analysis_type == "Time Series Analysis":
-        st.header("Time Series Analysis")
-        metric = st.selectbox("Select Metric", data.columns[2:], index=data.columns.get_loc("total_rentals")-2)
-        fig = display_time_series(data, metric, f'Time Series - {metric}')
-        st.plotly_chart(fig)
 
-    elif analysis_type == "Comparative Analysis":
-        st.header("Comparative Analysis Between Years")
-        year_options = sorted(data['year'].unique())
-        year1, year2 = st.select_slider("Select Two Years to Compare", options=year_options, value=(year_options[0], year_options[-1]))
-        metric = st.selectbox("Select Metric for Comparison", data.columns[2:], index=data.columns.get_loc("total_rentals")-2)
-        fig = comparative_analysis(data, year1, year2, metric)
-        st.plotly_chart(fig)
+def create_dist_clasify_df(df):
+    df['total'] = df['casual'] + df['registered']
+    quantiles = df['total'].quantile([0.33, 0.66])
 
-    elif analysis_type == "Distribution Analysis":
-        st.header("Distribution Analysis")
-        metric = st.selectbox("Select Metric to Analyze Distribution", data.columns[2:], index=data.columns.get_loc("total_rentals")-2)
-        fig = px.histogram(data, x=metric, nbins=50, marginal="box")
-        st.plotly_chart(fig)
+    def classify_usage(row):
+        if row['total'] <= quantiles.iloc[0]:
+            return 'Low'
+        elif row['total'] <= quantiles.iloc[1]:
+            return 'Medium'
+        else:
+            return 'High'
 
-if __name__ == "__main__":
-    main()
+    df['usage_class'] = df.apply(classify_usage, axis=1)
+    df['weekday'] = df['dteday'].dt.weekday
+
+    return df
+
+
+# Load cleaned data
+all_df = pd.read_csv("main_data.csv")
+
+all_df.sort_values(by='dteday', inplace=True)
+all_df.reset_index(inplace=True)
+all_df['dteday'] = pd.to_datetime(all_df['dteday'])
+
+
+# Filter data
+min_date = all_df['dteday'].min()
+max_date = all_df['dteday'].max()
+
+
+# Sidebar
+with st.sidebar:
+    # Logo
+    st.image("https://github.com/dicodingacademy/assets/raw/main/logo.png")
+
+    # Date range
+    start_date, end_date = st.date_input(
+        label='Date Range', min_value=min_date,
+        max_value=max_date,
+        value=[min_date, max_date]
+    )
+
+    # Reset button
+    if st.button('Reset Date Range'):
+        start_date = min_date
+        end_date = max_date
+
+main_df = all_df[(all_df['dteday'] >= str(start_date)) &
+                 (all_df['dteday'] <= str(end_date))]
+
+
+# Prepare dataframes
+daily_df = create_daily_df(main_df)
+daily_clasified_df = create_daily_clasified_df(main_df)
+daily_dist_clasified_df = create_dist_clasify_df(daily_clasified_df)
+time_series_df = daily_dist_clasified_df
+
+
+# Title and subtitle
+st.header('Dicoding Bike Sharing Dashboard')
+st.subheader('Date Range: \n{} — {}'.format(start_date.strftime('%B %d, %Y'), end_date.strftime('%B %d, %Y')))
+
+st.metric("Total Rides", daily_df['cnt'].sum())
+
+
+# Plot daily rides
+fig, ax = plt.subplots(figsize=(16, 8))
+ax.plot(
+    daily_df["dteday"],
+    daily_df["cnt"],
+    marker='o',
+    linewidth=2,
+    color="#90CAF9"
+)
+ax.tick_params(axis='y', labelsize=20)
+ax.tick_params(axis='x', labelsize=15)
+
+st.pyplot(fig)
+
+
+# Daily rides classified
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric("Total Casual Rides", daily_df['casual'].sum())
+
+with col2:
+    st.metric("Total Registered Rides", daily_df['registered'].sum())
+
+
+# Plot daily rides classified
+fig, ax = plt.subplots(figsize=(16, 8))
+ax.plot(
+    daily_clasified_df["dteday"],
+    daily_clasified_df["casual"],
+    marker='o',
+    linewidth=2,
+    color="#90CAF9",
+    label='Casual'
+)
+ax.plot(
+    daily_clasified_df["dteday"],
+    daily_clasified_df["registered"],
+    marker='o',
+    linewidth=2,
+    color="#FFAB91",
+    label='Registered'
+)
+ax.tick_params(axis='y', labelsize=20)
+ax.tick_params(axis='x', labelsize=15)
+ax.legend()
+
+st.pyplot(fig)
+
+
+# Daily rides classified by usage
+st.subheader('Rides Classified by Usage')
+
+scol1, scol2, scol3 = st.columns(3)
+
+with scol1:
+    st.metric("Low Usage", daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'Low']['total'].sum())
+
+with scol2:
+    st.metric("Medium Usage", daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'Medium']['total'].sum())
+
+with scol3:
+    st.metric("High Usage", daily_dist_clasified_df[daily_dist_clasified_df['usage_class'] == 'High']['total'].sum())
+
+fig, ax = plt.subplots(figsize=(16, 8))
+sns.countplot(x='weekday', hue='usage_class', data=daily_dist_clasified_df)
+plt.legend(title='Usage Class')
+
+days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+ax.set_xticklabels(days_of_week)
+ax.set_xlabel('')
+
+st.pyplot(fig)
+
+
+# Time series
+st.subheader('Time Series')
+st.metric("Average Rides", time_series_df['total'].mean())
+st.metric("Minimum", time_series_df['total'].min())
+st.metric("Maximum", time_series_df['total'].max())
+
+if len(time_series_df['total']) >= 14:
+    time_series_df.set_index('dteday', inplace=True)
+    decomposition = seasonal_decompose(time_series_df['total'], model='additive')
+    fig = decomposition.plot()
+
+    st.pyplot(fig)
+else:
+    st.write(f"Data tidak cukup untuk dekomposisi musiman: hanya ada {len(time_series_df['total'])} dari 14 observasi "
+             f"yang tersedia. Coba untuk memperluas rentang tanggal.")
