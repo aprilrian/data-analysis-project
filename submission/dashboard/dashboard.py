@@ -172,8 +172,14 @@ st.pyplot(fig)
 # Time series
 st.subheader('Time Series')
 st.metric("Average Rides", time_series_df['total'].mean())
-st.metric("Minimum", time_series_df['total'].min())
-st.metric("Maximum", time_series_df['total'].max())
+
+tcol1, tcol2 = st.columns(2)
+
+with tcol1:
+    st.metric("Minimum", time_series_df['total'].min())
+
+with tcol2:
+    st.metric("Maximum", time_series_df['total'].max())
 
 if len(time_series_df['total']) >= 14:
     time_series_df.set_index('dteday', inplace=True)
