@@ -185,6 +185,8 @@ if len(time_series_df['total']) >= 14:
     time_series_df.set_index('dteday', inplace=True)
     decomposition = seasonal_decompose(time_series_df['total'], model='additive')
     fig = decomposition.plot()
+    plt.rcParams.update(
+        {'axes.titlesize': 'large', 'axes.labelsize': 'medium', 'xtick.labelsize': 'small', 'ytick.labelsize': 'small'})
 
     st.pyplot(fig)
 else:
